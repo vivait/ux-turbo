@@ -38,7 +38,7 @@ use Symfony\Component\Mercure\Update;
 use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
 use Symfony\UX\StimulusBundle\StimulusBundle;
 use Symfony\UX\Turbo\TurboBundle;
-use Symfony\WebpackEncoreBundle\WebpackEncoreBundle;
+use Symfony\UX\TwigComponent\TwigComponentBundle;
 use Twig\Environment;
 
 /**
@@ -54,8 +54,8 @@ class Kernel extends BaseKernel
         yield new DoctrineBundle();
         yield new TwigBundle();
         yield new MercureBundle();
+        yield new TwigComponentBundle();
         yield new TurboBundle();
-        yield new WebpackEncoreBundle();
         yield new StimulusBundle();
         yield new WebProfilerBundle();
         yield new DebugBundle();
@@ -65,9 +65,12 @@ class Kernel extends BaseKernel
     {
         $container->extension('framework', [
             'secret' => 'ChangeMe',
-            'test' => 'test' === ($_SERVER['APP_ENV'] ?? 'dev'),
+            'test' => 'test' === $this->environment,
             'router' => [
                 'utf8' => true,
+            ],
+            'asset_mapper' => [
+                'paths' => ['assets/'],
             ],
             'profiler' => [
                 'only_exceptions' => false,
@@ -93,16 +96,19 @@ class Kernel extends BaseKernel
             ],
         ];
 
-        // https://github.com/doctrine/DoctrineBundle/pull/1661
-        $doctrineBundleVersion = InstalledVersions::getVersion('doctrine/doctrine-bundle');
-        if (null !== $doctrineBundleVersion && version_compare($doctrineBundleVersion, '2.9.0', '>=')) {
-            $doctrineConfig['orm']['report_fields_where_declared'] = true;
+        if (null !== $doctrineBundleVersion = InstalledVersions::getVersion('doctrine/doctrine-bundle')) {
+            if (version_compare($doctrineBundleVersion, '2.8.0', '>=')) {
+                $doctrineConfig['orm']['enable_lazy_ghost_objects'] = true;
+            }
+            // https://github.com/doctrine/DoctrineBundle/pull/1661
+            if (version_compare($doctrineBundleVersion, '2.9.0', '>=')) {
+                $doctrineConfig['orm']['report_fields_where_declared'] = true;
+            }
         }
 
         $container
             ->extension('doctrine', $doctrineConfig);
 
-        $container->extension('webpack_encore', ['output_path' => 'build']);
         $container->extension('web_profiler', [
             'toolbar' => true,
             'intercept_redirects' => false,
@@ -115,6 +121,11 @@ class Kernel extends BaseKernel
                     'jwt' => $_SERVER['MERCURE_JWT_TOKEN'] ?? 'eyJhbGciOiJIUzI1NiJ9.eyJtZXJjdXJlIjp7InB1Ymxpc2giOlsiKiJdfX0.vhMwOaN5K68BTIhWokMLOeOJO4EPfT64brd8euJOA4M',
                 ],
             ],
+        ]);
+
+        $container->extension('twig_component', [
+            'anonymous_template_directory' => 'components/',
+            'defaults' => ['App\Twig\Components\\' => 'components/'],
         ]);
     }
 
@@ -216,7 +227,7 @@ class Kernel extends BaseKernel
                     $song->artist = $doctrine->find(Artist::class, $artistId);
                 }
             }
-            if ($remove = $request->get('remove')) {
+            if ($request->get('remove')) {
                 $doctrine->remove($song);
             } else {
                 $doctrine->persist($song);

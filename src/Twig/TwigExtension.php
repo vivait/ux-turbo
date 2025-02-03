@@ -12,6 +12,7 @@
 namespace Symfony\UX\Turbo\Twig;
 
 use Psr\Container\ContainerInterface;
+use Symfony\UX\Turbo\Bridge\Mercure\TopicSet;
 use Twig\Environment;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFunction;
@@ -21,29 +22,32 @@ use Twig\TwigFunction;
  */
 final class TwigExtension extends AbstractExtension
 {
-    private $turboStreamListenRenderers;
-    private $default;
-
-    public function __construct(ContainerInterface $turboStreamListenRenderers, string $default)
-    {
-        $this->turboStreamListenRenderers = $turboStreamListenRenderers;
-        $this->default = $default;
+    public function __construct(
+        private ContainerInterface $turboStreamListenRenderers,
+        private string $default,
+    ) {
     }
 
-    public function getFunctions(): iterable
+    public function getFunctions(): array
     {
-        yield new TwigFunction('turbo_stream_listen', [$this, 'turboStreamListen'], ['needs_environment' => true, 'is_safe' => ['html']]);
+        return [
+            new TwigFunction('turbo_stream_listen', $this->turboStreamListen(...), ['needs_environment' => true, 'is_safe' => ['html']]),
+        ];
     }
 
     /**
-     * @param object|string $topic
+     * @param object|string|array<object|string> $topic
      */
-    public function turboStreamListen(Environment $env, $topic, string $transport = null): string
+    public function turboStreamListen(Environment $env, $topic, ?string $transport = null): string
     {
-        $transport = $transport ?? $this->default;
+        $transport ??= $this->default;
 
         if (!$this->turboStreamListenRenderers->has($transport)) {
-            throw new \InvalidArgumentException(sprintf('The Turbo stream transport "%s" doesn\'t exist.', $transport));
+            throw new \InvalidArgumentException(\sprintf('The Turbo stream transport "%s" does not exist.', $transport));
+        }
+
+        if (\is_array($topic)) {
+            $topic = new TopicSet($topic);
         }
 
         return $this->turboStreamListenRenderers->get($transport)->renderTurboStreamListen($env, $topic);

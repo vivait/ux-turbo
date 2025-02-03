@@ -17,7 +17,6 @@ use Symfony\UX\Turbo\Bridge\Mercure\Broadcaster;
  * Marks the entity as broadcastable.
  *
  * @Annotation
- *
  * @Target({"CLASS"})
  *
  * @author Kévin Dunglas <kevin@dunglas.fr>
@@ -30,9 +29,9 @@ final class Broadcast
     public const ACTION_REMOVE = 'remove';
 
     /**
-     * @var mixed[]
+     * @var array<mixed>
      */
-    public $options;
+    public array $options;
 
     /**
      * Options can be any option supported by the broadcaster.
